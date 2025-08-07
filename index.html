@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VC Verifier</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <div class="header-content">
+          <div>
+            <h1>Verifiable Credential Verifier</h1>
+            <p class="subtitle">
+              Verify W3C Verifiable Credentials with Ed25519Signature2018 proofs
+            </p>
+          </div>
+        </div>
+      </header>
+
+      <main>
+        <!-- File Upload Section -->
+        <section class="upload-section">
+          <div id="dropZone" class="drop-zone">
+            <div class="drop-zone-content">
+              <svg
+                class="upload-icon"
+                xmlns="http://www.w3.org/2000/svg"
+                width="48"
+                height="48"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <p>Drag & drop your credential JSON file here</p>
+              <p class="or-text">or</p>
+              <label for="fileInput" class="file-input-label">
+                <span>Browse Files</span>
+                <input
+                  type="file"
+                  id="fileInput"
+                  accept=".json,application/json"
+                />
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <!-- Credential Info Section -->
+        <section id="credentialInfo" class="credential-info hidden">
+          <h2>Credential Information</h2>
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">ID:</span>
+              <span id="credentialId" class="info-value"></span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Type:</span>
+              <span id="credentialType" class="info-value"></span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Issuer:</span>
+              <span id="credentialIssuer" class="info-value"></span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Issuance Date:</span>
+              <span id="credentialDate" class="info-value"></span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Proof Type:</span>
+              <span id="proofType" class="info-value"></span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Verification Progress Section -->
+        <section id="verificationProgress" class="verification-progress hidden">
+          <h2>Verification Progress</h2>
+          <div id="progressSteps" class="progress-steps">
+            <!-- Progress steps will be added dynamically -->
+          </div>
+        </section>
+
+        <!-- Results Section -->
+        <section id="results" class="results hidden">
+          <div id="resultContent" class="result-content">
+            <!-- Results will be displayed here -->
+          </div>
+        </section>
+
+        <!-- Sample Credential Section -->
+        <section class="sample-section">
+          <h3>Need a test credential?</h3>
+          <p>Try our sample credential to test the verifier:</p>
+          <div class="button-group">
+            <button id="loadSampleBtn" class="btn btn-secondary">
+              Load Sample
+            </button>
+            <button id="downloadSampleBtn" class="btn btn-secondary">
+              Download Sample
+            </button>
+            <button id="viewSampleBtn" class="btn btn-secondary">
+              View Sample
+            </button>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <div class="footer-content">
+          <p>
+            This verifier supports <strong>Ed25519Signature2018</strong> proof
+            types with JWS format.
+            <a
+              href="https://github.com/realizse/public-vc-verifier"
+              target="_blank"
+              rel="noopener"
+              >View on GitHub</a
+            >
+          </p>
+          <p class="footer-links">
+            <a
+              href="https://www.w3.org/TR/vc-data-model/"
+              target="_blank"
+              rel="noopener"
+              >W3C VC Spec</a
+            >
+            |
+            <a
+              href="https://w3c-ccg.github.io/did-method-web/"
+              target="_blank"
+              rel="noopener"
+              >DID Web Method</a
+            >
+            |
+            <a
+              href="https://github.com/digitalbazaar"
+              target="_blank"
+              rel="noopener"
+              >Digital Bazaar</a
+            >
+          </p>
+        </div>
+      </footer>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

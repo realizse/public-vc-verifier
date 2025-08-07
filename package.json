@@ -1,0 +1,20 @@
+{
+  "name": "web-verifier",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^7.0.4"
+  },
+  "dependencies": {
+    "@digitalbazaar/ed25519-signature-2018": "^4.1.0",
+    "@digitalbazaar/ed25519-verification-key-2018": "^4.0.0",
+    "jsonld": "^8.3.3",
+    "jsonld-signatures": "^11.5.0"
+  }
+}
