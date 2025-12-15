@@ -132,57 +132,6 @@ header {
   margin: 0;
 }
 
-/* Dark mode toggle button */
-.dark-mode-toggle {
-  position: absolute;
-  top: var(--space-md);
-  right: var(--space-md);
-  background: none;
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
-  padding: var(--space-sm);
-  cursor: pointer;
-  color: var(--text-primary);
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
-}
-
-.dark-mode-toggle:hover {
-  background-color: var(--background);
-  border-color: var(--primary-color);
-  color: var(--primary-color);
-}
-
-.dark-mode-toggle .sun-icon,
-.dark-mode-toggle .moon-icon {
-  transition: opacity 0.3s ease, transform 0.3s ease;
-  position: absolute;
-}
-
-.dark-mode-toggle .sun-icon {
-  opacity: 1;
-  transform: rotate(0deg);
-}
-
-.dark-mode-toggle .moon-icon {
-  opacity: 0;
-  transform: rotate(-90deg);
-}
-
-body.dark-mode .dark-mode-toggle .sun-icon {
-  opacity: 0;
-  transform: rotate(90deg);
-}
-
-body.dark-mode .dark-mode-toggle .moon-icon {
-  opacity: 1;
-  transform: rotate(0deg);
-}
-
 /* Card-style sections with minimal design */
 section {
   background-color: var(--surface);
@@ -658,17 +607,6 @@ footer {
   display: none !important;
 }
 
-/* Minimal spinner animation */
-.spinner {
-  display: inline-block;
-  width: 0.875rem;
-  height: 0.875rem;
-  border: 1.5px solid var(--border-color);
-  border-top-color: var(--primary-color);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
 @keyframes spin {
   from {
     transform: rotate(0deg);
@@ -679,18 +617,8 @@ footer {
 }
 
 /* ============================================================================
-   ANIMATIONS - Smooth, subtle effects
+   ANIMATIONS
    ============================================================================ */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 
 @keyframes slideIn {
   from {
