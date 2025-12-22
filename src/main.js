@@ -10,6 +10,48 @@ import {
 } from "./verification.js";
 import "./style.css";
 
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function normalizeErrorString(value) {
+  if (!value) return "";
+  return typeof value === "string" ? value : value.message || String(value);
+}
+
+// Map technical verification errors to user-friendly messages
+function getUserFriendlyVerificationError(technicalError) {
+  const errorStr = normalizeErrorString(technicalError);
+  if (!errorStr) return "Verification failed. The credential signature could not be verified.";
+
+  const normalized = errorStr.toLowerCase();
+
+  if (normalized.includes("cors") || normalized.includes("failed to fetch")) {
+    return "Unable to reach the issuer's server. This may be a network issue or the issuer's server may not allow browser verification.";
+  }
+  if (normalized.includes("timeout")) {
+    return "Verification took too long. Please try again.";
+  }
+  if (normalized.includes("unsupported proof type")) {
+    return "This credential uses a signature type that isn't supported yet.";
+  }
+  if (normalized.includes("verification method") && normalized.includes("not found")) {
+    return "The issuer's public key could not be found. The credential may be invalid or the issuer's records may have changed.";
+  }
+  if (normalized.includes("safe mode")) {
+    return "The credential contains untrusted external references that cannot be verified in the browser.";
+  }
+  if (normalized.includes("missing proof")) {
+    return "This credential doesn't contain a valid signature.";
+  }
+  return "Verification failed. The credential signature could not be verified.";
+}
+
 // Sample credential for testing
 const SAMPLE_CREDENTIAL = {
   issuanceDate: "2025-08-07T17:34:52.054Z",
@@ -85,10 +127,7 @@ function setupEventListeners() {
   elements.dropZone.addEventListener("dragleave", handleDragLeave);
   elements.dropZone.addEventListener("drop", handleDrop);
   elements.loadSampleBtn.addEventListener("click", loadSampleCredential);
-  elements.downloadSampleBtn.addEventListener(
-    "click",
-    downloadSampleCredential
-  );
+  elements.downloadSampleBtn.addEventListener("click", downloadSampleCredential);
   elements.viewSampleBtn.addEventListener("click", viewSampleCredential);
 }
 
@@ -119,7 +158,7 @@ function handleDrop(event) {
   if (file.type === "application/json" || file.name.endsWith(".json")) {
     readAndProcessFile(file);
   } else {
-    showError("Please drop a JSON file");
+    showUserError("Please drop a JSON file");
   }
 }
 
@@ -133,13 +172,13 @@ function readAndProcessFile(file) {
       const credential = JSON.parse(e.target.result);
       processCredential(credential);
     } catch (error) {
-      showError("Invalid JSON file: " + error.message);
+      showUserError("Invalid JSON file: " + error.message);
     }
   };
 
   reader.onerror = () => {
     elements.dropZone.classList.remove("processing");
-    showError("Failed to read file");
+    showUserError("Failed to read file");
   };
 
   reader.readAsText(file);
@@ -182,19 +221,19 @@ function processCredential(credential) {
 
 function validateCredentialStructure(credential) {
   if (!credential || typeof credential !== "object") {
-    showError("Invalid credential: must be a JSON object");
+    showUserError("Invalid credential: must be a JSON object");
     return false;
   }
   if (!credential.proof || !credential.proof.type) {
-    showError("Invalid credential: missing proof");
+    showUserError("Invalid credential: missing proof");
     return false;
   }
   if (!credential.proof.verificationMethod) {
-    showError("Invalid credential: missing verificationMethod");
+    showUserError("Invalid credential: missing verificationMethod");
     return false;
   }
   if (credential.proof.type !== "Ed25519Signature2018") {
-    showError(
+    showUserError(
       `Unsupported proof type: ${credential.proof.type}. This verifier only supports Ed25519Signature2018`
     );
     return false;
@@ -210,14 +249,23 @@ function displayCredentialInfo(credential) {
 
   const issuerDid = credential.issuer || "Not specified";
   if (issuerDid.startsWith("did:web:")) {
-    const [didUrl] = didWebToHttpsUrls(issuerDid);
-    elements.credentialIssuer.innerHTML = `<a href="${didUrl}" target="_blank" rel="noopener">${issuerDid}</a>`;
+    try {
+      const [didUrl] = didWebToHttpsUrls(issuerDid);
+      const link = document.createElement("a");
+      link.href = didUrl;
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.textContent = issuerDid;
+      elements.credentialIssuer.textContent = "";
+      elements.credentialIssuer.appendChild(link);
+    } catch {
+      elements.credentialIssuer.textContent = issuerDid;
+    }
   } else {
     elements.credentialIssuer.textContent = issuerDid;
   }
 
-  elements.credentialDate.textContent =
-    credential.issuanceDate || "Not specified";
+  elements.credentialDate.textContent = credential.issuanceDate || "Not specified";
   elements.proofType.textContent = credential.proof.type;
   elements.credentialInfo.classList.remove("hidden");
 }
@@ -227,10 +275,7 @@ async function verifyCredential(credential) {
   elements.progressSteps.innerHTML = "";
 
   try {
-    addProgressStep(
-      "Starting verification",
-      "Initializing cryptographic verification process..."
-    );
+    addProgressStep("Starting verification", "Initializing cryptographic verification process...");
     addProgressStep("Checking proof format", `Type: ${credential.proof.type}`);
 
     const result = await verifyCredentialSignature(
@@ -238,10 +283,7 @@ async function verifyCredential(credential) {
       (progress, message) => {
         switch (progress) {
           case PROGRESS_STEPS.RESOLVE_DID:
-            addProgressStep(
-              "Resolving DID",
-              "Fetching decentralized identifier document..."
-            );
+            addProgressStep("Resolving DID", "Fetching decentralized identifier document...");
             break;
           case PROGRESS_STEPS.CREATE_KEY:
             addProgressStep("Creating verification key");
@@ -261,7 +303,7 @@ async function verifyCredential(credential) {
       showFailure(result.error || "Verification failed");
     }
   } catch (error) {
-    showError(error.message);
+    showError(error);
   }
 }
 
@@ -273,18 +315,13 @@ function completeAllProgressSteps(failed = false) {
     const icon = step.querySelector(".step-icon");
     if (icon) {
       const isLast = index === allSteps.length - 1;
-      icon.innerHTML =
-        failed && isLast
-          ? '<span style="color: var(--error-color)">✗</span>'
-          : "✓";
+      icon.innerHTML = (failed && isLast) ? '<span style="color: var(--error-color)">✗</span>' : "✓";
     }
   });
 }
 
 function addProgressStep(title, detail = null) {
-  const previousSteps = elements.progressSteps.querySelectorAll(
-    ".progress-step.active"
-  );
+  const previousSteps = elements.progressSteps.querySelectorAll(".progress-step.active");
   previousSteps.forEach((step) => {
     step.classList.remove("active");
     step.classList.add("completed");
@@ -294,11 +331,13 @@ function addProgressStep(title, detail = null) {
 
   const step = document.createElement("div");
   step.className = "progress-step active";
+  const safeTitle = escapeHtml(title);
+  const safeDetail = detail ? escapeHtml(detail) : null;
   step.innerHTML = `
     <div class="step-icon"><span class="spinner"></span></div>
     <div class="step-content">
-      <div class="step-title">${title}</div>
-      ${detail ? `<div class="step-detail">${detail}</div>` : ""}
+      <div class="step-title">${safeTitle}</div>
+      ${safeDetail ? `<div class="step-detail">${safeDetail}</div>` : ""}
     </div>
   `;
   elements.progressSteps.appendChild(step);
@@ -314,6 +353,10 @@ function showResult(type, title, message, details = [], errorText = null) {
   const isFailed = type === "failure" || type === "error";
   completeAllProgressSteps(isFailed);
   elements.results.classList.remove("hidden");
+
+  const safeTitle = escapeHtml(title);
+  const safeMessage = escapeHtml(message);
+  const safeErrorText = errorText ? escapeHtml(errorText) : null;
 
   let iconSvg;
   switch (type) {
@@ -337,7 +380,16 @@ function showResult(type, title, message, details = [], errorText = null) {
       break;
   }
 
-  // Build details HTML
+  // Build details HTML with collapsible technical error
+  const technicalErrorHtml = safeErrorText
+    ? `
+      <details class="technical-details">
+        <summary>Show technical details</summary>
+        <pre>${safeErrorText}</pre>
+      </details>
+    `
+    : "";
+
   const detailsHtml =
     details.length > 0
       ? `
@@ -346,38 +398,27 @@ function showResult(type, title, message, details = [], errorText = null) {
         .map(
           (item) => `
         <div class="detail-item">
-          <span>${item.icon}</span>
-          <span>${item.text}</span>
+          <span>${escapeHtml(item.icon)}</span>
+          <span>${escapeHtml(item.text)}</span>
         </div>
       `
         )
         .join("")}
-      ${
-        errorText
-          ? `<p style="color: var(--error-color);">${errorText}</p>`
-          : ""
-      }
+      ${technicalErrorHtml}
     </div>
   `
-      : errorText
-      ? `<div class="result-details"><p style="color: var(--error-color);">${errorText}</p></div>`
+      : technicalErrorHtml
+      ? `<div class="result-details">${technicalErrorHtml}</div>`
       : "";
 
-  const buttonText =
-    type === "error" || type === "timeout"
-      ? "Try Again"
-      : "Verify Another Credential";
+  const buttonText = type === "error" || type === "timeout" ? "Try Again" : "Verify Another Credential";
 
   elements.resultContent.innerHTML = `
     ${iconSvg}
     <h3 class="result-title ${
-      type === "success"
-        ? "result-success"
-        : type === "error" || type === "failure"
-        ? "result-error"
-        : ""
-    }">${title}</h3>
-    <p class="result-message">${message}</p>
+      type === "success" ? "result-success" : type === "error" || type === "failure" ? "result-error" : ""
+    }">${safeTitle}</h3>
+    <p class="result-message">${safeMessage}</p>
     ${detailsHtml}
     <button class="btn ${
       type === "error" ? "btn-secondary" : "btn-primary"
@@ -413,35 +454,54 @@ function showTimeoutError() {
 }
 
 function showFailure(error) {
-  let errorMessage = "Unknown verification error";
+  let technicalError = "Unknown verification error";
   if (error) {
     if (typeof error === "string") {
-      errorMessage = error;
+      technicalError = error;
     } else if (error.errors && Array.isArray(error.errors)) {
-      errorMessage = error.errors.map((e) => e.message || e).join(", ");
+      technicalError = error.errors.map((e) => e.message || e).join(", ");
     } else if (error.message) {
-      errorMessage = error.message;
+      technicalError = error.message;
     }
   }
 
   // Extract inner errors if top-level message is generic
-  if (errorMessage === "Verification error(s)." && error?.errors?.length > 0) {
-    errorMessage = error.errors
+  if (
+    technicalError === "Verification error(s)." &&
+    error?.errors?.length > 0
+  ) {
+    technicalError = error.errors
       .map((innerError) => innerError?.message || String(innerError))
       .join(", ");
   }
 
+  const friendlyError = getUserFriendlyVerificationError(technicalError);
+
   showResult(
     "failure",
     "Verification Failed",
-    "The credential signature could not be verified.",
+    friendlyError,
     [],
-    errorMessage
+    technicalError !== friendlyError ? technicalError : null
   );
 }
 
 function showError(message) {
   elements.verificationProgress.classList.add("hidden");
   elements.credentialInfo.classList.add("hidden");
-  showResult("error", "Error", message);
+  const technicalMessage = normalizeErrorString(message);
+  const friendlyMessage = getUserFriendlyVerificationError(technicalMessage);
+  showResult(
+    "error",
+    "Error",
+    friendlyMessage,
+    [],
+    technicalMessage !== friendlyMessage ? technicalMessage : null
+  );
+}
+
+function showUserError(message) {
+  elements.verificationProgress.classList.add("hidden");
+  elements.credentialInfo.classList.add("hidden");
+  showResult("error", "Error", normalizeErrorString(message) || "Error");
 }

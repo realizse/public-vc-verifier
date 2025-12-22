@@ -13,7 +13,7 @@ export const PROGRESS_STEPS = {
   RESOLVE_DID: 50,
   CREATE_KEY: 65,
   SETUP_SUITE: 80,
-  VERIFY: 100,
+  VERIFY: 95,
 };
 
 const documentCache = new Map();
@@ -28,20 +28,60 @@ function safeDecodeURIComponent(value) {
 
 export function didWebToHttpsUrls(didWeb) {
   const did = String(didWeb).split("#")[0];
-  const didWithoutPrefix = did.replace(/^did:web:/, "");
-  const parts = didWithoutPrefix.split(":").map(safeDecodeURIComponent);
-  const host = parts[0];
-  const path = parts.slice(1);
+  if (!did.startsWith("did:web:")) {
+    throw new Error(`Invalid did:web identifier: ${didWeb}`);
+  }
+
+  const didWithoutPrefix = did.slice("did:web:".length);
+  const rawParts = didWithoutPrefix.split(":");
+  const host = safeDecodeURIComponent(rawParts[0]);
+  const path = rawParts.slice(1).map(safeDecodeURIComponent);
 
   if (!host) {
     throw new Error(`Invalid did:web identifier: ${didWeb}`);
   }
 
-  if (path.length === 0) {
-    return [`https://${host}/.well-known/did.json`];
+  let baseUrl;
+  try {
+    baseUrl = new URL(`https://${host}`);
+  } catch {
+    throw new Error(`Invalid did:web identifier: ${didWeb}`);
   }
 
-  return [`https://${host}/${path.join("/")}/did.json`];
+  if (baseUrl.username || baseUrl.password) {
+    throw new Error(`Invalid did:web identifier: ${didWeb}`);
+  }
+
+  if (baseUrl.pathname !== "/" || baseUrl.search || baseUrl.hash) {
+    throw new Error(`Invalid did:web identifier: ${didWeb}`);
+  }
+
+  const didDocumentUrl = new URL(baseUrl.origin);
+
+  if (path.length === 0) {
+    didDocumentUrl.pathname = "/.well-known/did.json";
+    return [didDocumentUrl.toString()];
+  }
+
+  for (const segment of path) {
+    if (!segment) {
+      throw new Error(`Invalid did:web identifier: ${didWeb}`);
+    }
+    if (segment === "." || segment === "..") {
+      throw new Error(`Invalid did:web identifier: ${didWeb}`);
+    }
+    if (
+      segment.includes("/") ||
+      segment.includes("\\") ||
+      segment.includes("?") ||
+      segment.includes("#")
+    ) {
+      throw new Error(`Invalid did:web identifier: ${didWeb}`);
+    }
+  }
+
+  didDocumentUrl.pathname = `/${path.map(encodeURIComponent).join("/")}/did.json`;
+  return [didDocumentUrl.toString()];
 }
 
 // Document loader for JSON-LD contexts and DID documents
@@ -58,16 +98,15 @@ export async function loadUrlDocument(url) {
     return documentCache.get(url);
   }
 
-  if (
-    url.startsWith("urn:") ||
-    (url.startsWith("did:") && !url.startsWith("did:web:"))
-  ) {
+  const isHttps = /^https:\/\//i.test(url);
+  const isDidWeb = url.startsWith("did:web:");
+
+  if (!isHttps && !isDidWeb) {
     throw new Error(
       `Unsupported document URL: ${url}. Only https:// and did:web: are supported.`
     );
   }
 
-  const isDidWeb = url.startsWith("did:web:");
   const requestUrl = isDidWeb ? didWebToHttpsUrls(url)[0] : url;
 
   try {
