@@ -90,10 +90,18 @@ function setupEventListeners() {
   elements.dropZone.addEventListener("drop", handleDrop);
 }
 
+// Every upload attempt supersedes the previous one: clear what it showed and
+// stop its results from appearing, before the new file is checked or read.
+function beginUpload() {
+  elements.dropZone.classList.remove("processing");
+  resetUI();
+  return verificationRuns.start();
+}
+
 function handleFileSelect(event) {
   const file = event.target.files[0];
   if (file) {
-    readAndProcessFile(file);
+    readAndProcessFile(file, beginUpload());
   }
 }
 
@@ -114,15 +122,15 @@ function handleDrop(event) {
   const file = event.dataTransfer.files[0];
   if (!file) return;
 
+  const isCurrent = beginUpload();
   if (file.type === "application/json" || file.name.endsWith(".json")) {
-    readAndProcessFile(file);
+    readAndProcessFile(file, isCurrent);
   } else {
     showUserError("Please drop a JSON file");
   }
 }
 
-function readAndProcessFile(file) {
-  const isCurrent = verificationRuns.start();
+function readAndProcessFile(file, isCurrent) {
   elements.dropZone.classList.add("processing");
   const reader = new FileReader();
 
@@ -146,7 +154,7 @@ function readAndProcessFile(file) {
   reader.readAsText(file);
 }
 
-function processCredential(credential, isCurrent = verificationRuns.start()) {
+function processCredential(credential, isCurrent) {
   resetUI();
 
   if (!validateCredentialStructure(credential)) {
@@ -242,7 +250,8 @@ async function verifyCredential(credential, isCurrent) {
   }
 }
 
-function completeAllProgressSteps(failed = false) {
+// The last step shows how verification ended: ✓ passed, ✗ failed, ! not confirmed
+function completeAllProgressSteps(lastStepIcon = "✓") {
   const allSteps = elements.progressSteps.querySelectorAll(".progress-step");
   allSteps.forEach((step, index) => {
     step.classList.remove("active");
@@ -250,7 +259,7 @@ function completeAllProgressSteps(failed = false) {
     const icon = step.querySelector(".step-icon");
     if (icon) {
       const isLast = index === allSteps.length - 1;
-      icon.innerHTML = (failed && isLast) ? '<span style="color: var(--error-color)">✗</span>' : "✓";
+      icon.innerHTML = isLast ? lastStepIcon : "✓";
     }
   });
 }
@@ -285,8 +294,13 @@ function resetUI() {
 }
 
 function showResult(type, title, message, details = [], errorText = null) {
-  const isFailed = type === "failure" || type === "error";
-  completeAllProgressSteps(isFailed);
+  const lastStepIcon =
+    type === "failure" || type === "error"
+      ? '<span style="color: var(--error-color)">✗</span>'
+      : type === "success"
+      ? "✓"
+      : '<span style="color: var(--warning-color)">!</span>';
+  completeAllProgressSteps(lastStepIcon);
   elements.results.classList.remove("hidden");
 
   const safeTitle = escapeHtml(title);
