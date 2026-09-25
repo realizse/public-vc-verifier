@@ -317,31 +317,6 @@ section h2 {
 }
 
 /* ============================================================================
-   SAMPLE SECTION - Subtle call-to-action
-   ============================================================================ */
-.sample-section {
-  background-color: var(--background);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
-  padding: var(--space-md) var(--space-lg);
-  text-align: center;
-  margin-bottom: var(--space-md);
-}
-
-.sample-section h3 {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: var(--space-sm);
-}
-
-.sample-section p {
-  color: var(--text-secondary);
-  margin-bottom: var(--space-md);
-  font-size: 0.875rem;
-}
-
-/* ============================================================================
    CREDENTIAL INFO SECTION - Compact grid layout
    ============================================================================ */
 .credential-info {

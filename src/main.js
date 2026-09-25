@@ -57,46 +57,6 @@ function getUserFriendlyVerificationError(technicalError) {
   return "Verification failed. The credential signature could not be verified.";
 }
 
-// Sample credential for testing
-const SAMPLE_CREDENTIAL = {
-  issuanceDate: "2025-08-07T17:34:52.054Z",
-  credentialSubject: {
-    zipCode: "10007",
-    ownerPhone: "(617) 495-1000",
-    city: "New York",
-    latitude: "40.7161708",
-    type: ["DPP"],
-    ownerEmail: "admin+harvard.ui@realizse.com",
-    ownerName: "Harvard University",
-    streetAddress: "33 Thomas St",
-    name: "33 Thomas St",
-    proofOfOwnership: {
-      name: "proof-of-ownership-1754588086.pdf",
-      type: "application/pdf",
-      etag: "d2d9ee7c97e97d3767c735f8b739a03e",
-    },
-    id: "did:web:api-vera.susi.spherity.dev:did-registry:realizse-asset-passport-e65d6dc3137f3b67",
-    state: "NY",
-    longitude: "-74.0056597",
-  },
-  id: "urn:dpp:building-asset-0-0-8:c1d9a074-6e4e-41a9-9c8e-fa9071cb0d33",
-  proof: {
-    proofPurpose: "assertionMethod",
-    type: "Ed25519Signature2018",
-    verificationMethod:
-      "did:web:api-vera.susi.spherity.dev:did-registry:realizse-mvp-509d5aa5c0707240#2a820e937af6379baa0d336a268eb0566fc10463305305113c944a17c1d9f6e7",
-    created: "2025-08-07T17:34:52Z",
-    jws: "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..36yLo7-CPZD_LrQ9K-8Dy9YA40a6Pjuru4CbudCBG7kTCkNGYIUGtToHuL4kuQ2448Y5EukrwJyUP29D62ikCg",
-  },
-  type: ["VerifiableCredential"],
-  "@context": [
-    "https://www.w3.org/2018/credentials/v1",
-    "https://api-andromeda.susi.spherity.dev/templates/v2/building-asset-0-0-8.jsonld",
-  ],
-  issuer:
-    "did:web:api-vera.susi.spherity.dev:did-registry:realizse-mvp-509d5aa5c0707240",
-};
-
 let elements = {};
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -108,9 +68,6 @@ function initializeElements() {
   elements = {
     dropZone: document.getElementById("dropZone"),
     fileInput: document.getElementById("fileInput"),
-    loadSampleBtn: document.getElementById("loadSampleBtn"),
-    downloadSampleBtn: document.getElementById("downloadSampleBtn"),
-    viewSampleBtn: document.getElementById("viewSampleBtn"),
     credentialInfo: document.getElementById("credentialInfo"),
     verificationProgress: document.getElementById("verificationProgress"),
     results: document.getElementById("results"),
@@ -131,9 +88,6 @@ function setupEventListeners() {
   elements.dropZone.addEventListener("dragover", handleDragOver);
   elements.dropZone.addEventListener("dragleave", handleDragLeave);
   elements.dropZone.addEventListener("drop", handleDrop);
-  elements.loadSampleBtn.addEventListener("click", loadSampleCredential);
-  elements.downloadSampleBtn.addEventListener("click", downloadSampleCredential);
-  elements.viewSampleBtn.addEventListener("click", viewSampleCredential);
 }
 
 function handleFileSelect(event) {
@@ -190,31 +144,6 @@ function readAndProcessFile(file) {
   };
 
   reader.readAsText(file);
-}
-
-function loadSampleCredential() {
-  processCredential(SAMPLE_CREDENTIAL);
-}
-
-function downloadSampleCredential() {
-  const jsonString = JSON.stringify(SAMPLE_CREDENTIAL, null, 2);
-  const blob = new Blob([jsonString], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "sample-credential.json";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-}
-
-function viewSampleCredential() {
-  const jsonString = JSON.stringify(SAMPLE_CREDENTIAL, null, 2);
-  const blob = new Blob([jsonString], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  window.open(url, "_blank");
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function processCredential(credential, isCurrent = verificationRuns.start()) {
