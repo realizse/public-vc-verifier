@@ -16,5 +16,8 @@
   "dependencies": {
     "@digitalbazaar/ed25519-signature-2020": "^5.4.0",
     "jsonld-signatures": "^11.6.0"
+  },
+  "engines": {
+    "node": ">=24"
   }
 }
