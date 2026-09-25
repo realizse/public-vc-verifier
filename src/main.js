@@ -8,8 +8,12 @@ import {
   verifyCredentialSignature,
   PROGRESS_STEPS,
   didWebToHttpsUrls,
+  getCredentialIssuerId,
 } from "./lib/credential-verifier.ts";
+import { createLatestRunTracker } from "./latest-run.js";
 import "./style.css";
+
+const verificationRuns = createLatestRunTracker();
 
 function escapeHtml(value) {
   return String(value)
@@ -164,20 +168,23 @@ function handleDrop(event) {
 }
 
 function readAndProcessFile(file) {
+  const isCurrent = verificationRuns.start();
   elements.dropZone.classList.add("processing");
   const reader = new FileReader();
 
   reader.onload = (e) => {
+    if (!isCurrent()) return;
     elements.dropZone.classList.remove("processing");
     try {
       const credential = JSON.parse(e.target.result);
-      processCredential(credential);
+      processCredential(credential, isCurrent);
     } catch (error) {
       showUserError("Invalid JSON file: " + error.message);
     }
   };
 
   reader.onerror = () => {
+    if (!isCurrent()) return;
     elements.dropZone.classList.remove("processing");
     showUserError("Failed to read file");
   };
@@ -210,14 +217,14 @@ function viewSampleCredential() {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function processCredential(credential) {
+function processCredential(credential, isCurrent = verificationRuns.start()) {
   resetUI();
 
   if (!validateCredentialStructure(credential)) {
     return;
   }
   displayCredentialInfo(credential);
-  verifyCredential(credential);
+  verifyCredential(credential, isCurrent);
 }
 
 function validateCredentialStructure(credential) {
@@ -242,7 +249,7 @@ function displayCredentialInfo(credential) {
     ? credential.type.join(", ")
     : credential.type;
 
-  const issuerDid = credential.issuer || "Not specified";
+  const issuerDid = getCredentialIssuerId(credential.issuer) || "Not specified";
   if (issuerDid.startsWith("did:web:")) {
     try {
       const [didUrl] = didWebToHttpsUrls(issuerDid);
@@ -265,7 +272,7 @@ function displayCredentialInfo(credential) {
   elements.credentialInfo.classList.remove("hidden");
 }
 
-async function verifyCredential(credential) {
+async function verifyCredential(credential, isCurrent) {
   elements.verificationProgress.classList.remove("hidden");
   elements.progressSteps.innerHTML = "";
 
@@ -276,6 +283,7 @@ async function verifyCredential(credential) {
     const result = await verifyCredentialSignature(
       credential,
       (progress, message) => {
+        if (!isCurrent()) return;
         switch (progress) {
           case PROGRESS_STEPS.SETUP_SUITE:
             addProgressStep("Setting up verification");
@@ -287,14 +295,20 @@ async function verifyCredential(credential) {
       }
     );
 
+    if (!isCurrent()) return;
     if (result.verified) {
-      showSuccess();
+      showSuccess(getCredentialIssuerId(credential.issuer));
     } else if (result.errorType === "TIMEOUT") {
       showTimeoutError();
+    } else if (result.errorType === "ISSUER_MISMATCH") {
+      showIssuerMismatch(result.error);
+    } else if (result.errorType === "ISSUER_UNRESOLVED") {
+      showIssuerUnresolved(result.error);
     } else {
       showFailure(result.error || "Verification failed");
     }
   } catch (error) {
+    if (!isCurrent()) return;
     showError(error);
   }
 }
@@ -418,17 +432,36 @@ function showResult(type, title, message, details = [], errorText = null) {
   `;
 }
 
-function showSuccess() {
+function showSuccess(issuerId) {
   showResult(
     "success",
     "Verification Successful",
-    "The credential signature has been cryptographically verified.",
+    "The signature is valid and was made with a key the named issuer authorized.",
     [
       { icon: "✓", text: "Digital signature is valid" },
-      { icon: "✓", text: "Issuer identity confirmed" },
-      { icon: "✓", text: "Credential has not been tampered with" },
+      { icon: "✓", text: `Signed with a key authorized by ${issuerId}` },
+      { icon: "✓", text: "Credential has not been changed since it was signed" },
+      { icon: "i", text: "Expiry and revocation are not checked" },
     ]
   );
+}
+
+function showIssuerMismatch(error) {
+  showResult(
+    "failure",
+    "Issuer Not Confirmed",
+    "This credential could not be tied to the issuer it names. Do not rely on it.",
+    [],
+    normalizeErrorString(error) || null
+  );
+}
+
+function showIssuerUnresolved(error) {
+  const technical = normalizeErrorString(error);
+  const message = technical.startsWith("Issuer unreachable")
+    ? "The issuer's records could not be reached, so this credential could not be confirmed. This may be temporary; try again later."
+    : "The issuer's published records could not be read, so this credential could not be confirmed.";
+  showResult("warning", "Issuer Could Not Be Checked", message, [], technical || null);
 }
 
 function showTimeoutError() {
@@ -438,8 +471,7 @@ function showTimeoutError() {
     "The verification process took too long to complete. This may be due to network issues or complex credential processing.",
     [
       { icon: "✓", text: "Credential structure validated" },
-      { icon: "✓", text: "DID resolved successfully" },
-      { icon: "!", text: "Cryptographic verification timed out" },
+      { icon: "!", text: "Verification timed out" },
       { icon: "i", text: "Try refreshing the page and verifying again" },
     ]
   );
