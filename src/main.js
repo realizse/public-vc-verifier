@@ -1,13 +1,14 @@
 /**
  * UI handling for the credential verifier.
- * See verification.js for the cryptographic verification logic.
+ * See lib/credential-verifier.ts (copied from realizse-platform-ui) for the
+ * cryptographic verification logic.
  */
 
 import {
   verifyCredentialSignature,
   PROGRESS_STEPS,
   didWebToHttpsUrls,
-} from "./verification.js";
+} from "./lib/credential-verifier.ts";
 import "./style.css";
 
 function escapeHtml(value) {
@@ -38,7 +39,7 @@ function getUserFriendlyVerificationError(technicalError) {
     return "Verification took too long. Please try again.";
   }
   if (normalized.includes("unsupported proof type")) {
-    return "This credential uses a signature type that isn't supported yet.";
+    return "This credential uses a signature type this verifier doesn't support. Only Ed25519Signature2020 credentials can be verified.";
   }
   if (normalized.includes("verification method") && normalized.includes("not found")) {
     return "The issuer's public key could not be found. The credential may be invalid or the issuer's records may have changed.";
@@ -232,12 +233,6 @@ function validateCredentialStructure(credential) {
     showUserError("Invalid credential: missing verificationMethod");
     return false;
   }
-  if (credential.proof.type !== "Ed25519Signature2018") {
-    showUserError(
-      `Unsupported proof type: ${credential.proof.type}. This verifier only supports Ed25519Signature2018`
-    );
-    return false;
-  }
   return true;
 }
 
@@ -282,14 +277,11 @@ async function verifyCredential(credential) {
       credential,
       (progress, message) => {
         switch (progress) {
-          case PROGRESS_STEPS.RESOLVE_DID:
-            addProgressStep("Resolving DID", "Fetching decentralized identifier document...");
-            break;
-          case PROGRESS_STEPS.CREATE_KEY:
-            addProgressStep("Creating verification key");
+          case PROGRESS_STEPS.SETUP_SUITE:
+            addProgressStep("Setting up verification");
             break;
           case PROGRESS_STEPS.VERIFY:
-            addProgressStep("Verifying signature");
+            addProgressStep("Checking issuer and signature", "Fetching the issuer's DID document...");
             break;
         }
       }
