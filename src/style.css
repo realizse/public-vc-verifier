@@ -303,19 +303,6 @@ section h2 {
   color: white !important;
 }
 
-/* Button groups */
-.button-group {
-  display: flex;
-  gap: var(--space-sm);
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.button-group .btn {
-  flex: 1;
-  min-width: 7rem;
-}
-
 /* ============================================================================
    CREDENTIAL INFO SECTION - Compact grid layout
    ============================================================================ */
@@ -657,14 +644,6 @@ footer {
 
   .info-grid {
     grid-template-columns: 1fr;
-  }
-
-  .button-group {
-    flex-direction: column;
-  }
-
-  .button-group .btn {
-    width: 100%;
   }
 }
 
